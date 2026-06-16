@@ -5,8 +5,9 @@ export interface Priority { id: string; text: string; hrs: string; status: Statu
 
 export interface Week {
   id: string;
-  weekOf: string;
-  oneOnOne: string;
+  weekStart?: string; // canonical ISO Monday, e.g. "2026-06-15" (source of truth)
+  weekOf: string;     // legacy display label, kept for back-compat / export
+  oneOnOne?: string;  // legacy 1:1 date text, no longer displayed (Tuesday is derived)
   accomplished: Li[];
   priorities: Priority[];
   blockers: Li[];

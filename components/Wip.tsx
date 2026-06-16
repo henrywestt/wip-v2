@@ -2,11 +2,15 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   GripVertical, Plus, X, Download, ArrowUpRight, CornerDownLeft,
-  ChevronLeft, ChevronRight, CalendarPlus,
+  ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SEED, uid, li } from "@/lib/seed";
 import type { WipDoc, Status } from "@/lib/types";
+import {
+  migrateDoc, ensureWeek, currentWeekStart, prevWeek, nextWeek,
+  weekStartForDate, weekCommencingLabel, tuesdayLabel,
+} from "@/lib/week";
 
 const STATUS: Status[] = ["todo", "active", "done", "blocked"];
 const LABEL: Record<Status, string> = { todo: "Not started", active: "In progress", done: "Done", blocked: "Blocked" };
@@ -71,7 +75,7 @@ const Block = ({ title, count, children }: any) => (
 export default function Wip({ id }: { id: string }) {
   const [doc, setDoc] = useState<WipDoc | null>(null);
   const [tab, setTab] = useState<"week" | "quarter" | "north">("week");
-  const [idx, setIdx] = useState(0);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
   const [saved, setSaved] = useState<"idle" | "saving" | "ok">("idle");
 
   const applyingRemote = useRef(false); // skip the autosave that a remote update would trigger
@@ -87,15 +91,15 @@ export default function Wip({ id }: { id: string }) {
       if (!active) return;
       if (data?.data) {
         applyingRemote.current = true;
-        setDoc(data.data as WipDoc);
-        setIdx(((data.data as WipDoc).weeks?.length || 1) - 1);
+        setDoc(migrateDoc(data.data as WipDoc));
       } else {
-        // no row yet -> create one seeded with your content
-        await supabase.from("wip_docs").insert({ id, data: SEED });
+        // no row yet -> create one seeded with your content, migrated to real weeks
+        const seeded = migrateDoc(SEED);
+        await supabase.from("wip_docs").insert({ id, data: seeded });
         applyingRemote.current = true;
-        setDoc(SEED);
-        setIdx(SEED.weeks.length - 1);
+        setDoc(seeded);
       }
+      setSelectedWeekStart(currentWeekStart());
     })();
 
     const channel = supabase
@@ -107,7 +111,7 @@ export default function Wip({ id }: { id: string }) {
           if (!next) return;
           if (next.rev && next.rev === myRev.current) return; // our own echo
           applyingRemote.current = true;
-          setDoc(next);
+          setDoc(migrateDoc(next));
         })
       .subscribe();
 
@@ -142,12 +146,25 @@ export default function Wip({ id }: { id: string }) {
     return () => window.removeEventListener("keydown", h);
   }, []);
 
+  /* ---- auto-initialise a week the first time it's visited ---- */
+  useEffect(() => {
+    if (!doc || !selectedWeekStart) return;
+    if (doc.weeks.some((w) => w.weekStart === selectedWeekStart)) return;
+    setDoc((d) => {
+      if (!d) return d;
+      if (d.weeks.some((w) => w.weekStart === selectedWeekStart)) return d; // no overwrite
+      return { ...d, weeks: ensureWeek(d, selectedWeekStart) };
+    });
+  }, [doc, selectedWeekStart]);
+
   /* ---- mutation helpers ---- */
   const setNS = (patch: any) => setDoc((d) => d && ({ ...d, northStar: { ...d.northStar, ...patch } }));
   const setBets = (bets: any) => setDoc((d) => d && ({ ...d, bets }));
   const setWeek = (patch: any) => setDoc((d) => {
     if (!d) return d;
-    const weeks = [...d.weeks]; weeks[idx] = { ...weeks[idx], ...patch }; return { ...d, weeks };
+    const i = d.weeks.findIndex((w) => w.weekStart === selectedWeekStart);
+    if (i < 0) return d;
+    const weeks = [...d.weeks]; weeks[i] = { ...weeks[i], ...patch }; return { ...d, weeks };
   });
 
   /* drag-reorder for priorities */
@@ -165,25 +182,18 @@ export default function Wip({ id }: { id: string }) {
 
   if (!doc) return <div className="wip"><div className="shell"><div className="center">Loading…</div></div></div>;
 
-  const wk = doc.weeks[idx];
-  const isCurrent = idx === doc.weeks.length - 1;
+  const cur = currentWeekStart();
+  const wk = doc.weeks.find((w) => w.weekStart === selectedWeekStart);
+  if (!wk) return <div className="wip"><div className="shell"><div className="center">Loading week…</div></div></div>;
+  const idx = doc.weeks.findIndex((w) => w.weekStart === selectedWeekStart);
+  const isCurrent = wk.weekStart === cur;
+  const isPast = (wk.weekStart || "") < cur;
 
   const reorder = (from: number, to: number) => {
     const n = [...wk.priorities]; const [m] = n.splice(from, 1); n.splice(to, 0, m); setWeek({ priorities: n });
   };
   const addPrio = () => { const ni = { id: uid(), text: "", hrs: "", status: "todo" as Status }; setWeek({ priorities: [...wk.priorities, ni] }); setPFocus(ni.id); };
   const cycle = (pid: string) => setWeek({ priorities: wk.priorities.map((p) => p.id === pid ? { ...p, status: STATUS[(STATUS.indexOf(p.status) + 1) % 4] } : p) });
-
-  const newWeek = () => setDoc((d) => {
-    if (!d) return d;
-    const last = d.weeks[d.weeks.length - 1];
-    const carried = last.priorities.filter((p) => p.status !== "done")
-      .map((p) => ({ id: uid(), text: p.text, hrs: "", status: "todo" as Status }));
-    const w = { id: uid(), weekOf: "", oneOnOne: "", accomplished: [], priorities: carried, blockers: [], feedback: [], discussion: [] };
-    const weeks = [...d.weeks, w];
-    setTimeout(() => { setIdx(weeks.length - 1); setTab("week"); }, 0);
-    return { ...d, weeks };
-  });
 
   const setBetStatus = (bid: string) => setBets(doc.bets.map((b) => b.id === bid ? { ...b, status: STATUS[(STATUS.indexOf(b.status) + 1) % 4] } : b));
   const setProgress = (bid: string, e: React.MouseEvent) => {
@@ -226,15 +236,19 @@ export default function Wip({ id }: { id: string }) {
         {tab === "week" && (
           <div className="page">
             <div className="weeknav">
-              <button className="nv" disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))}><ChevronLeft size={16} /></button>
-              <button className="nv" disabled={isCurrent} onClick={() => setIdx((i) => Math.min(doc.weeks.length - 1, i + 1))}><ChevronRight size={16} /></button>
+              <button className="nv" onClick={() => setSelectedWeekStart((s) => prevWeek(s))} title="Previous week"><ChevronLeft size={16} /></button>
+              <button className="nv" onClick={() => setSelectedWeekStart((s) => nextWeek(s))} title="Next week"><ChevronRight size={16} /></button>
               <div className="now">
-                <Editable className="wk" value={wk.weekOf} ph="Week of…" onCommit={(v: string) => setWeek({ weekOf: v })} />
-                <span className="oo">1:1 <Editable className="oed" value={wk.oneOnOne} ph="—" onCommit={(v: string) => setWeek({ oneOnOne: v })} /></span>
+                <span className="wk">{weekCommencingLabel(wk.weekStart!)}</span>
+                <span className="oo">1:1 · {tuesdayLabel(wk.weekStart!)}</span>
               </div>
-              {!isCurrent && <span className="archived">past week</span>}
-              <span className="pos mono">{idx + 1} of {doc.weeks.length}</span>
-              <button className="iconbtn" onClick={newWeek} title="Carries unfinished priorities forward"><CalendarPlus size={12} /> New week</button>
+              {isPast && <span className="archived">past week</span>}
+              <label className="datepick" title="Jump to any week">
+                <Calendar size={13} />
+                <input type="date" value={wk.weekStart || ""}
+                  onChange={(e) => { if (e.target.value) setSelectedWeekStart(weekStartForDate(new Date(e.target.value + "T00:00:00"))); }} />
+              </label>
+              {!isCurrent && <button className="iconbtn" onClick={() => setSelectedWeekStart(cur)}>This week</button>}
             </div>
 
             <div className="week-grid">

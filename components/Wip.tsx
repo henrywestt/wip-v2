@@ -277,13 +277,13 @@ export default function Wip({ id }: { id: string }) {
                   <button className="additem" onClick={addPrio}><Plus size={12} /> Add priority</button>
                   <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch tabs</div>
                 </Block>
+                <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
+                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" />
+                </Block>
               </div>
               <div className="col">
                 <Block title="Wins this Week" count={wk.accomplished.length}>
                   <EditList items={wk.accomplished} setItems={(a: any) => setWeek({ accomplished: a })} ph="What got done…" />
-                </Block>
-                <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
-                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" />
                 </Block>
                 <Block title="Blockers" count={wk.blockers.length}>
                   <EditList items={wk.blockers} setItems={(a: any) => setWeek({ blockers: a })} ph="What's in the way…" />

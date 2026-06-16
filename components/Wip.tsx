@@ -269,17 +269,22 @@ export default function Wip({ id }: { id: string }) {
                       <span className="hrs"><Editable className="hed" value={p.hrs} ph="–"
                         onCommit={(v: string) => setWeek({ priorities: wk.priorities.map((x) => x.id === p.id ? { ...x, hrs: v } : x) })} />h</span>
                       <Chip status={p.status} onCycle={() => cycle(p.id)} />
+                      <span className="deadline"><Editable className="ded" value={p.deadline || ""} ph="Due…"
+                        onCommit={(v: string) => setWeek({ priorities: wk.priorities.map((x) => x.id === p.id ? { ...x, deadline: v } : x) })} /></span>
                       <X size={14} className="rm" onClick={() => setWeek({ priorities: wk.priorities.filter((x) => x.id !== p.id) })} />
                     </div>
                   ))}
                   <button className="additem" onClick={addPrio}><Plus size={12} /> Add priority</button>
                   <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch tabs</div>
                 </Block>
-                <Block title="Accomplished this week" count={wk.accomplished.length}>
-                  <EditList items={wk.accomplished} setItems={(a: any) => setWeek({ accomplished: a })} ph="What got done…" />
-                </Block>
               </div>
               <div className="col">
+                <Block title="Wins this Week" count={wk.accomplished.length}>
+                  <EditList items={wk.accomplished} setItems={(a: any) => setWeek({ accomplished: a })} ph="What got done…" />
+                </Block>
+                <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
+                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" />
+                </Block>
                 <Block title="Blockers" count={wk.blockers.length}>
                   <EditList items={wk.blockers} setItems={(a: any) => setWeek({ blockers: a })} ph="What's in the way…" />
                 </Block>

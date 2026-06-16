@@ -111,7 +111,10 @@ export function migrateDoc(doc: WipDoc, now: Date = new Date()): WipDoc {
     while (used.has(ws)) ws = addDaysISO(ws, 7);
     used.add(ws);
     lastAssigned = ws;
-    return { ...w, weekStart: ws };
+    // Back-compat: older saved weeks predate `otherTasks`. Guarantee it's an
+    // array so the UI never has to guard for undefined.
+    const otherTasks = Array.isArray(w.otherTasks) ? w.otherTasks : [];
+    return { ...w, weekStart: ws, otherTasks };
   });
 
   weeks.sort((a, b) => a.weekStart!.localeCompare(b.weekStart!));
@@ -142,6 +145,7 @@ export function ensureWeek(doc: WipDoc, weekStart: string): Week[] {
     oneOnOne: "",
     accomplished: [],
     priorities,
+    otherTasks: [],
     blockers: [],
     feedback: [],
     discussion: [],

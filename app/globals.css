@@ -21,7 +21,7 @@ html,body{background:#FBFAF7}
 
 /* ---- topbar: editorial, brand-led ---- */
 .topbar{position:sticky;top:0;z-index:30;background:var(--paper);padding-top:26px}
-.topbar:after{content:"";position:absolute;left:0;right:0;bottom:0;height:18px;background:linear-gradient(var(--paper),rgba(251,250,247,0));pointer-events:none}
+.topbar:after{content:"";position:absolute;left:0;right:0;bottom:-18px;height:18px;background:linear-gradient(var(--paper),rgba(251,250,247,0));pointer-events:none}
 .brand-row{display:flex;align-items:center;justify-content:space-between;padding-bottom:20px}
 .brand{display:flex;align-items:baseline;gap:14px}
 .brand b{font-weight:700;font-size:24px;letter-spacing:-.04em;line-height:1}
@@ -97,6 +97,9 @@ html,body{background:#FBFAF7}
 .prio .ptext:empty:before{content:attr(data-ph);color:var(--faint)}
 .prio .hrs{display:flex;align-items:center;gap:3px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--low)}
 .prio .hrs .hed{outline:none;min-width:12px;text-align:right;color:var(--mid)}
+.prio .deadline{display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--low);flex:none;border-left:1px solid var(--line);padding-left:11px}
+.prio .deadline .ded{outline:none;min-width:40px;color:var(--mid);white-space:nowrap}
+.prio .deadline .ded:empty:before{content:attr(data-ph);color:var(--faint)}
 .prio .rm{opacity:0;color:var(--faint);cursor:pointer;flex:none;transition:.12s}
 .prio:hover .rm{opacity:1}
 .prio .rm:hover{color:var(--clay)}

@@ -9,7 +9,7 @@ html,body{background:#FBFAF7}
   --line:rgba(20,19,15,.10); --line-2:rgba(20,19,15,.20);
   --ink:#14130F; --mid:#54514A; --low:#8A867B; --faint:#B4AFA3;
   --gold:#E0A82E; --gold-deep:#9C6F12; --gold-soft:rgba(224,168,46,.14); --gold-line:rgba(224,168,46,.55);
-  --green:#3E8E5A; --clay:#C0573F; --slate:#8A867B; --r:12px;
+  --green:#3E8E5A; --clay:#C0573F; --slate:#8A867B; --blue:#3F6FA8; --r:12px;
   --shadow:0 1px 2px rgba(20,19,15,.05),0 8px 24px -16px rgba(20,19,15,.18);
   font-family:'Space Grotesk',system-ui,sans-serif;
   background:var(--paper); color:var(--ink); min-height:100vh;
@@ -117,7 +117,8 @@ html,body{background:#FBFAF7}
 .chip:hover{border-color:var(--ink)}
 .chip .sd{width:6px;height:6px;border-radius:50%;flex:none}
 .chip[data-s="done"]{color:var(--green)} .chip[data-s="done"] .sd{background:var(--green)}
-.chip[data-s="active"]{color:var(--gold-deep)} .chip[data-s="active"] .sd{background:var(--gold)}
+  .chip[data-s="active"]{color:var(--gold-deep)} .chip[data-s="active"] .sd{background:var(--gold)}
+  .chip[data-s="review"]{color:var(--blue)} .chip[data-s="review"] .sd{background:var(--blue)}
 .chip[data-s="blocked"]{color:var(--clay)} .chip[data-s="blocked"] .sd{background:var(--clay)}
 .chip[data-s="todo"]{color:var(--slate)} .chip[data-s="todo"] .sd{background:var(--slate)}
 
@@ -126,7 +127,10 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--sunk
 
 .bets{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
 .bet{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px 22px 18px;box-shadow:var(--shadow);transition:border-color .15s}
-.bet:hover{border-color:var(--line-2)}
+  .bet:hover{border-color:var(--line-2)}
+  .bet .betrm{position:absolute;top:14px;right:14px;opacity:0;color:var(--faint);cursor:pointer;transition:.12s;margin-top:0}
+  .bet:hover .betrm{opacity:1}
+  .bet .betrm:hover{color:var(--clay)}
 .bet .ladder{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--low);margin-bottom:12px}
 .bet .ladder svg{width:11px;height:11px;color:var(--gold-deep)}
 .bet .name{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.02em;margin-bottom:9px}

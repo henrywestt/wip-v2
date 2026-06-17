@@ -87,6 +87,15 @@ html,body{background:#FBFAF7}
 .additem{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--low);background:none;border:none;cursor:pointer;padding:6px 0;transition:.12s;font-family:inherit}
 .additem:hover{color:var(--ink)}
 
+/* checkable lists (Key Actions, Other Tasks): real checkbox replaces the dot */
+.item .cb{appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:none;margin-top:3px;
+  border:1.5px solid var(--line-2);border-radius:4px;background:var(--card);cursor:pointer;position:relative;transition:.12s}
+.item .cb:hover{border-color:var(--ink)}
+.item .cb:checked{background:var(--gold);border-color:var(--gold)}
+.item .cb:checked:after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.item.done .ed{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line-2)}
+
 .prio{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:8px;box-shadow:var(--shadow);transition:border-color .15s,opacity .15s,transform .12s}
 .prio.drag{opacity:.4}
 .prio.over{border-color:var(--gold-line)}

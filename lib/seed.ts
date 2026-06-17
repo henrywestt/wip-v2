@@ -1,7 +1,9 @@
 import type { WipDoc } from "./types";
 
 export const uid = () => Math.random().toString(36).slice(2, 9);
-export const li = (text: string) => ({ id: uid(), text });
+// New list items carry a `checked` flag (default false). Harmless on
+// non-checkable lists, which simply ignore it.
+export const li = (text: string, checked = false) => ({ id: uid(), text, checked });
 
 // First-run content. Your real WIP, so a brand-new doc isn't an empty page.
 export const SEED: WipDoc = {
@@ -58,6 +60,10 @@ export const SEED: WipDoc = {
       accomplished: [
         li("Spark Phase 3 deck: structure locked, story spine agreed"),
         li("Two brand workshops run, synthesis captured"),
+      ],
+      keyActions: [
+        li("Send Spark Phase 3 deck to Polina for review"),
+        li("Chase L'Oreal category data"),
       ],
       priorities: [
         { id: uid(), text: "Spark Phase 3 deck", hrs: "8", status: "active" },

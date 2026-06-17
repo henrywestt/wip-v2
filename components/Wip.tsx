@@ -9,7 +9,7 @@ import { SEED, uid, li } from "@/lib/seed";
 import type { WipDoc, Status } from "@/lib/types";
 import {
   migrateDoc, ensureWeek, currentWeekStart, prevWeek, nextWeek,
-  weekStartForDate, weekCommencingLabel, tuesdayLabel,
+  weekStartForDate, weekCommencingLabel,
 } from "@/lib/week";
 
 const STATUS: Status[] = ["todo", "active", "done", "blocked"];
@@ -44,14 +44,20 @@ function Chip({ status, onCycle }: { status: Status; onCycle: () => void }) {
   );
 }
 
-function EditList({ items, setItems, ph, mid }: any) {
+function EditList({ items, setItems, ph, mid, checkable }: any) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const add = (afterIdx: number) => { const ni = li(""); const next = [...items]; next.splice(afterIdx + 1, 0, ni); setItems(next); setFocusId(ni.id); };
+  const toggle = (id: string) => setItems(items.map((x: any) => x.id === id ? { ...x, checked: !x.checked } : x));
   return (
     <div>
       {items.map((it: any, i: number) => (
-        <div className="item" key={it.id}>
-          <span className="dot" />
+        <div className={`item${checkable ? " check" : ""}${checkable && it.checked ? " done" : ""}`} key={it.id}>
+          {checkable ? (
+            <input type="checkbox" className="cb" checked={!!it.checked}
+              onChange={() => toggle(it.id)} aria-label="Toggle done" />
+          ) : (
+            <span className="dot" />
+          )}
           <Editable className={mid ? "ed mid" : "ed"} value={it.text} ph={ph} autoFocus={focusId === it.id}
             onCommit={(v: string) => setItems(items.map((x: any) => x.id === it.id ? { ...x, text: v } : x))}
             onEnterAdd={() => add(i)}
@@ -240,7 +246,6 @@ export default function Wip({ id }: { id: string }) {
               <button className="nv" onClick={() => setSelectedWeekStart((s) => nextWeek(s))} title="Next week"><ChevronRight size={16} /></button>
               <div className="now">
                 <span className="wk">{weekCommencingLabel(wk.weekStart!)}</span>
-                <span className="oo">1:1 · {tuesdayLabel(wk.weekStart!)}</span>
               </div>
               {isPast && <span className="archived">past week</span>}
               <label className="datepick" title="Jump to any week">
@@ -278,18 +283,18 @@ export default function Wip({ id }: { id: string }) {
                   <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch tabs</div>
                 </Block>
                 <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
-                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" />
+                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" checkable />
                 </Block>
               </div>
               <div className="col">
+                <Block title="Key Actions" count={(wk.keyActions ?? []).length}>
+                  <EditList items={wk.keyActions ?? []} setItems={(a: any) => setWeek({ keyActions: a })} ph="Key action…" checkable />
+                </Block>
                 <Block title="Wins this Week" count={wk.accomplished.length}>
                   <EditList items={wk.accomplished} setItems={(a: any) => setWeek({ accomplished: a })} ph="What got done…" />
                 </Block>
                 <Block title="Blockers" count={wk.blockers.length}>
                   <EditList items={wk.blockers} setItems={(a: any) => setWeek({ blockers: a })} ph="What's in the way…" />
-                </Block>
-                <Block title="Feedback" count={wk.feedback.length}>
-                  <EditList items={wk.feedback} setItems={(a: any) => setWeek({ feedback: a })} ph="Judgement check / feedback…" mid />
                 </Block>
                 <Block title="Discussion topics" count={wk.discussion.length}>
                   <EditList items={wk.discussion} setItems={(a: any) => setWeek({ discussion: a })} ph="Decisions, FYIs, asks…" mid />

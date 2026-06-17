@@ -3,7 +3,7 @@
 // Single source of truth: a week IS the Monday it starts on, stored as an
 // ISO "YYYY-MM-DD" string (`weekStart`). Everything else is derived.
 
-import type { WipDoc, Week, Status } from "./types";
+import type { WipDoc, Week, Status, Li } from "./types";
 import { uid } from "./seed";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -68,6 +68,13 @@ const MONIX: Record<string, number> = {
 
 const isISO = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
+/** Coerce an unknown value into a Li[]. */
+const asLiList = (v: unknown): Li[] => (Array.isArray(v) ? (v as Li[]) : []);
+
+/** Default a checkable list's items to `checked: false` where missing. */
+const withChecked = (items: Li[]): Li[] =>
+  items.map((it) => ({ ...it, checked: typeof it.checked === "boolean" ? it.checked : false }));
+
 /**
  * Compatibility layer for legacy free-text labels like "Mon 16 Jun".
  * The label carries no year and its weekday word may not match the real
@@ -111,10 +118,12 @@ export function migrateDoc(doc: WipDoc, now: Date = new Date()): WipDoc {
     while (used.has(ws)) ws = addDaysISO(ws, 7);
     used.add(ws);
     lastAssigned = ws;
-    // Back-compat: older saved weeks predate `otherTasks`. Guarantee it's an
-    // array so the UI never has to guard for undefined.
-    const otherTasks = Array.isArray(w.otherTasks) ? w.otherTasks : [];
-    return { ...w, weekStart: ws, otherTasks };
+    // Back-compat: older saved weeks predate `otherTasks` / `keyActions`.
+    // Guarantee both are arrays, and default each checkable item's `checked`
+    // to false so the UI never has to guard for undefined.
+    const otherTasks = withChecked(asLiList(w.otherTasks));
+    const keyActions = withChecked(asLiList(w.keyActions));
+    return { ...w, weekStart: ws, keyActions, otherTasks };
   });
 
   weeks.sort((a, b) => a.weekStart!.localeCompare(b.weekStart!));
@@ -145,9 +154,9 @@ export function ensureWeek(doc: WipDoc, weekStart: string): Week[] {
     oneOnOne: "",
     accomplished: [],
     priorities,
+    keyActions: [],
     otherTasks: [],
     blockers: [],
-    feedback: [],
     discussion: [],
   };
 

@@ -1,4 +1,4 @@
-export type Status = "todo" | "active" | "done" | "blocked";
+export type Status = "todo" | "active" | "review" | "done" | "blocked";
 
 // `checked` is optional so older saved items (which only had { id, text })
 // stay valid. It's only meaningful for "checkable" lists (Key Actions, Other Tasks).

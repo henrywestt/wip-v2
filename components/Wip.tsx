@@ -12,8 +12,8 @@ import {
   weekStartForDate, weekCommencingLabel,
 } from "@/lib/week";
 
-const STATUS: Status[] = ["todo", "active", "done", "blocked"];
-const LABEL: Record<Status, string> = { todo: "Not started", active: "In progress", done: "Done", blocked: "Blocked" };
+const STATUS: Status[] = ["todo", "active", "review", "done", "blocked"];
+const LABEL: Record<Status, string> = { todo: "Not started", active: "In progress", review: "For review", done: "Done", blocked: "Blocked" };
 
 /* ---------- inline-editable text (uncontrolled, caret-stable) ---------- */
 function Editable({ value, onCommit, ph, className = "ed", onEnterAdd, onEmptyBack, autoFocus }: any) {
@@ -199,9 +199,9 @@ export default function Wip({ id }: { id: string }) {
     const n = [...wk.priorities]; const [m] = n.splice(from, 1); n.splice(to, 0, m); setWeek({ priorities: n });
   };
   const addPrio = () => { const ni = { id: uid(), text: "", hrs: "", status: "todo" as Status }; setWeek({ priorities: [...wk.priorities, ni] }); setPFocus(ni.id); };
-  const cycle = (pid: string) => setWeek({ priorities: wk.priorities.map((p) => p.id === pid ? { ...p, status: STATUS[(STATUS.indexOf(p.status) + 1) % 4] } : p) });
+  const cycle = (pid: string) => setWeek({ priorities: wk.priorities.map((p) => p.id === pid ? { ...p, status: STATUS[(STATUS.indexOf(p.status) + 1) % STATUS.length] } : p) });
 
-  const setBetStatus = (bid: string) => setBets(doc.bets.map((b) => b.id === bid ? { ...b, status: STATUS[(STATUS.indexOf(b.status) + 1) % 4] } : b));
+  const setBetStatus = (bid: string) => setBets(doc.bets.map((b) => b.id === bid ? { ...b, status: STATUS[(STATUS.indexOf(b.status) + 1) % STATUS.length] } : b));
   const setProgress = (bid: string, e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, Math.round(((e.clientX - r.left) / r.width) * 20) * 5));
@@ -296,7 +296,7 @@ export default function Wip({ id }: { id: string }) {
                 <Block title="Blockers" count={wk.blockers.length}>
                   <EditList items={wk.blockers} setItems={(a: any) => setWeek({ blockers: a })} ph="What's in the way…" />
                 </Block>
-                <Block title="Discussion topics" count={wk.discussion.length}>
+                <Block title="For Discussion" count={wk.discussion.length}>
                   <EditList items={wk.discussion} setItems={(a: any) => setWeek({ discussion: a })} ph="Decisions, FYIs, asks…" mid />
                 </Block>
               </div>
@@ -310,6 +310,7 @@ export default function Wip({ id }: { id: string }) {
             <div className="bets">
               {doc.bets.map((b) => (
                 <div className="bet" key={b.id}>
+                  <X size={14} className="rm betrm" onClick={() => setBets(doc.bets.filter((x) => x.id !== b.id))} />
                   <div className="ladder"><ArrowUpRight /> ladders to North Star</div>
                   <Editable className="ed name" value={b.name} ph="Name the bet…"
                     onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, name: v } : x))} />

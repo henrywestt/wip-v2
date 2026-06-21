@@ -70,6 +70,43 @@ function EditList({ items, setItems, ph, mid, checkable }: any) {
   );
 }
 
+/* Drag-to-reorder list for simple {id,text} items (Other Tasks).
+   Owns its OWN drag state so dragging here never affects any other list. */
+function ReorderList({ items, setItems, ph }: any) {
+  const dragIx = useRef<number | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  const reorder = (from: number, to: number) => {
+    const n = [...items]; const [m] = n.splice(from, 1); n.splice(to, 0, m); setItems(n);
+  };
+  const add = (afterIdx: number) => {
+    const ni = li(""); const next = [...items]; next.splice(afterIdx + 1, 0, ni); setItems(next); setFocusId(ni.id);
+  };
+
+  return (
+    <div>
+      {items.map((it: any, i: number) => (
+        <div key={it.id} className={`otrow ${dragId === it.id ? "drag" : ""} ${overId === it.id ? "over" : ""}`}
+          draggable
+          onDragStart={() => { dragIx.current = i; setDragId(it.id); }}
+          onDragOver={(e) => { e.preventDefault(); if (overId !== it.id) setOverId(it.id); }}
+          onDragEnd={() => { setDragId(null); setOverId(null); }}
+          onDrop={() => { if (dragIx.current != null) reorder(dragIx.current, i); setDragId(null); setOverId(null); }}>
+          <span className="grip"><GripVertical size={14} /></span>
+          <Editable value={it.text} ph={ph} autoFocus={focusId === it.id}
+            onCommit={(v: string) => setItems(items.map((x: any) => x.id === it.id ? { ...x, text: v } : x))}
+            onEnterAdd={() => add(i)}
+            onEmptyBack={() => { if (items.length > 1) setItems(items.filter((x: any) => x.id !== it.id)); }} />
+          <X size={13} className="rm" onClick={() => setItems(items.filter((x: any) => x.id !== it.id))} />
+        </div>
+      ))}
+      <button className="additem" onClick={() => add(items.length - 1)}><Plus size={12} /> Add</button>
+    </div>
+  );
+}
+
 const Block = ({ title, count, children }: any) => (
   <div className="block">
     <div className="h"><span className="t">{title}</span>{count != null && <span className="c">{count}</span>}</div>
@@ -283,7 +320,7 @@ export default function Wip({ id }: { id: string }) {
                   <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch tabs</div>
                 </Block>
                 <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
-                  <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" checkable />
+                  <ReorderList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" />
                 </Block>
               </div>
               <div className="col">

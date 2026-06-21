@@ -3,7 +3,7 @@
 // Single source of truth: a week IS the Monday it starts on, stored as an
 // ISO "YYYY-MM-DD" string (`weekStart`). Everything else is derived.
 
-import type { WipDoc, Week, Status, Li } from "./types";
+import type { WipDoc, Week, Li } from "./types";
 import { uid } from "./seed";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -143,8 +143,13 @@ export function ensureWeek(doc: WipDoc, weekStart: string): Week[] {
     .filter((w) => (w.weekStart || "") < weekStart)
     .sort((a, b) => (b.weekStart || "").localeCompare(a.weekStart || ""))[0];
 
+  // Carry priorities forward from the most recent earlier week, but drop any
+  // that are finished. Keep each remaining priority's status AND deadline,
+  // give it a fresh id, and reset hrs for the new week.
   const priorities = prev
-    ? prev.priorities.map((p) => ({ id: uid(), text: p.text, hrs: "", status: "todo" as Status }))
+    ? prev.priorities
+        .filter((p) => p.status !== "done")
+        .map((p) => ({ id: uid(), text: p.text, hrs: "", status: p.status, deadline: p.deadline }))
     : [];
 
   const week: Week = {

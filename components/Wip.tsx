@@ -6,14 +6,14 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SEED, uid, li } from "@/lib/seed";
-import type { WipDoc, Status } from "@/lib/types";
+import type { WipDoc, Status, MeetingStatus } from "@/lib/types";
 import {
   migrateDoc, ensureWeek, currentWeekStart, prevWeek, nextWeek,
   weekStartForDate, weekCommencingLabel,
 } from "@/lib/week";
 
-const STATUS: Status[] = ["todo", "active", "done", "blocked"];
-const LABEL: Record<Status, string> = { todo: "Not started", active: "In progress", done: "Done", blocked: "Blocked" };
+const STATUS: Status[] = ["todo", "active", "review", "done", "blocked"];
+const LABEL: Record<Status, string> = { todo: "Not started", active: "In progress", review: "For review", done: "Done", blocked: "Blocked" };
 
 /* ---------- inline-editable text (uncontrolled, caret-stable) ---------- */
 function Editable({ value, onCommit, ph, className = "ed", onEnterAdd, onEmptyBack, autoFocus }: any) {
@@ -40,6 +40,30 @@ function Chip({ status, onCycle }: { status: Status; onCycle: () => void }) {
   return (
     <button className="chip" data-s={status} onClick={onCycle} title="Click to change status">
       <span className="sd" />{LABEL[status]}
+    </button>
+  );
+}
+
+/* ---- auto-growing textarea for multi-line fields (uncontrolled, like Editable) ---- */
+function AutoText({ value, onCommit, ph, className = "" }: any) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const fit = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+  useEffect(() => { fit(); }, []);
+  return (
+    <textarea ref={ref} className={`atext ${className}`} defaultValue={value} placeholder={ph} rows={1}
+      onInput={fit} onBlur={(e) => onCommit(e.currentTarget.value)} />
+  );
+}
+
+/* ---- meeting status: its own small cycle, distinct from the Status type ---- */
+const MSTATUS: MeetingStatus[] = ["not-started", "scheduled", "completed", "follow-up"];
+const MLABEL: Record<MeetingStatus, string> = {
+  "not-started": "Not started", scheduled: "Scheduled", completed: "Completed", "follow-up": "Follow-up",
+};
+function MeetingChip({ status, onCycle }: { status: MeetingStatus; onCycle: () => void }) {
+  return (
+    <button className="chip" data-m={status} onClick={onCycle} title="Click to change status">
+      <span className="sd" />{MLABEL[status]}
     </button>
   );
 }
@@ -80,7 +104,7 @@ const Block = ({ title, count, children }: any) => (
 /* ============================ main ============================ */
 export default function Wip({ id }: { id: string }) {
   const [doc, setDoc] = useState<WipDoc | null>(null);
-  const [tab, setTab] = useState<"week" | "quarter" | "north">("week");
+  const [tab, setTab] = useState<"week" | "kpi" | "quarter" | "north">("week");
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
   const [saved, setSaved] = useState<"idle" | "saving" | "ok">("idle");
 
@@ -145,8 +169,9 @@ export default function Wip({ id }: { id: string }) {
       const ae = document.activeElement as HTMLElement | null;
       if (ae && (ae.isContentEditable || ae.tagName === "INPUT")) return;
       if (e.key === "1") setTab("week");
-      if (e.key === "2") setTab("quarter");
-      if (e.key === "3") setTab("north");
+      if (e.key === "2") setTab("kpi");
+      if (e.key === "3") setTab("quarter");
+      if (e.key === "4") setTab("north");
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -166,6 +191,24 @@ export default function Wip({ id }: { id: string }) {
   /* ---- mutation helpers ---- */
   const setNS = (patch: any) => setDoc((d) => d && ({ ...d, northStar: { ...d.northStar, ...patch } }));
   const setBets = (bets: any) => setDoc((d) => d && ({ ...d, bets }));
+
+  /* KPIs */
+  const setKpi = (patch: any) => setDoc((d) => d && ({ ...d, kpi: { ...d.kpi!, ...patch } }));
+  const setKpiTheme = (tid: string, patch: any) =>
+    setDoc((d) => d && ({ ...d, kpi: { ...d.kpi!, themes: d.kpi!.themes.map((t) => t.id === tid ? { ...t, ...patch } : t) } }));
+  const addKpiTheme = () =>
+    setDoc((d) => d && ({ ...d, kpi: { ...d.kpi!, themes: [...d.kpi!.themes, { id: uid(), theme: "", target: "", stretch: "", progress: "" }] } }));
+  const removeKpiTheme = (tid: string) =>
+    setDoc((d) => d && ({ ...d, kpi: { ...d.kpi!, themes: d.kpi!.themes.filter((t) => t.id !== tid) } }));
+
+  /* Quarterly Focus */
+  const setQuarter = (qid: string, patch: any) =>
+    setDoc((d) => d && ({ ...d, quarters: (d.quarters ?? []).map((q) => q.id === qid ? { ...q, ...patch } : q) }));
+  const addQuarter = () =>
+    setDoc((d) => d && ({ ...d, quarters: [...(d.quarters ?? []), { id: uid(), quarter: "", area: "", objective: "", meetings: [], notes: "", progress: "" }] }));
+  const removeQuarter = (qid: string) =>
+    setDoc((d) => d && ({ ...d, quarters: (d.quarters ?? []).filter((q) => q.id !== qid) }));
+  const setMeetings = (qid: string, meetings: any) => setQuarter(qid, { meetings });
   const setWeek = (patch: any) => setDoc((d) => {
     if (!d) return d;
     const i = d.weeks.findIndex((w) => w.weekStart === selectedWeekStart);
@@ -178,6 +221,7 @@ export default function Wip({ id }: { id: string }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [pFocus, setPFocus] = useState<string | null>(null);
+  const [kpiOpen, setKpiOpen] = useState<string | null>(null); // which KPI theme's progress panel is open
 
   const exportJSON = useCallback(() => {
     if (!doc) return;
@@ -199,9 +243,9 @@ export default function Wip({ id }: { id: string }) {
     const n = [...wk.priorities]; const [m] = n.splice(from, 1); n.splice(to, 0, m); setWeek({ priorities: n });
   };
   const addPrio = () => { const ni = { id: uid(), text: "", hrs: "", status: "todo" as Status }; setWeek({ priorities: [...wk.priorities, ni] }); setPFocus(ni.id); };
-  const cycle = (pid: string) => setWeek({ priorities: wk.priorities.map((p) => p.id === pid ? { ...p, status: STATUS[(STATUS.indexOf(p.status) + 1) % 4] } : p) });
+  const cycle = (pid: string) => setWeek({ priorities: wk.priorities.map((p) => p.id === pid ? { ...p, status: STATUS[(STATUS.indexOf(p.status) + 1) % STATUS.length] } : p) });
 
-  const setBetStatus = (bid: string) => setBets(doc.bets.map((b) => b.id === bid ? { ...b, status: STATUS[(STATUS.indexOf(b.status) + 1) % 4] } : b));
+  const setBetStatus = (bid: string) => setBets(doc.bets.map((b) => b.id === bid ? { ...b, status: STATUS[(STATUS.indexOf(b.status) + 1) % STATUS.length] } : b));
   const setProgress = (bid: string, e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, Math.round(((e.clientX - r.left) / r.width) * 20) * 5));
@@ -209,10 +253,16 @@ export default function Wip({ id }: { id: string }) {
   };
   const addBet = () => setBets([...doc.bets, { id: uid(), name: "", desc: "", status: "todo" as Status, progress: 0, evidence: "", notes: "" }]);
 
+  /* Quarterly Focus: meeting-row helpers (operate on a given quarter) */
+  const addMeeting = (q: any) => setMeetings(q.id, [...q.meetings, { id: uid(), date: "", people: "", unit: "", purpose: "", notes: "", status: "not-started" as MeetingStatus }]);
+  const updateMeeting = (q: any, mid: string, patch: any) => setMeetings(q.id, q.meetings.map((m: any) => m.id === mid ? { ...m, ...patch } : m));
+  const cycleMeeting = (q: any, mid: string) => setMeetings(q.id, q.meetings.map((m: any) => m.id === mid ? { ...m, status: MSTATUS[(MSTATUS.indexOf(m.status) + 1) % MSTATUS.length] } : m));
+
   const TABS = [
     { id: "week", label: "This Week", key: "1", count: `${idx + 1}/${doc.weeks.length}` },
-    { id: "quarter", label: "Quarterly Bets", key: "2", count: doc.bets.length },
-    { id: "north", label: "North Star", key: "3", count: null },
+    { id: "kpi", label: "KPIs", key: "2", count: doc.kpi ? doc.kpi.themes.length : 0 },
+    { id: "quarter", label: "Quarterly Focus", key: "3", count: (doc.quarters ?? []).length },
+    { id: "north", label: "North Star", key: "4", count: null },
   ] as const;
 
   return (
@@ -280,7 +330,7 @@ export default function Wip({ id }: { id: string }) {
                     </div>
                   ))}
                   <button className="additem" onClick={addPrio}><Plus size={12} /> Add priority</button>
-                  <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch tabs</div>
+                  <div className="hint"><CornerDownLeft size={11} /> <kbd>Enter</kbd> adds the next one · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> switch tabs</div>
                 </Block>
                 <Block title="Other Tasks" count={(wk.otherTasks ?? []).length}>
                   <EditList items={wk.otherTasks ?? []} setItems={(a: any) => setWeek({ otherTasks: a })} ph="Anything else on…" checkable />
@@ -296,7 +346,7 @@ export default function Wip({ id }: { id: string }) {
                 <Block title="Blockers" count={wk.blockers.length}>
                   <EditList items={wk.blockers} setItems={(a: any) => setWeek({ blockers: a })} ph="What's in the way…" />
                 </Block>
-                <Block title="Discussion topics" count={wk.discussion.length}>
+                <Block title="For Discussion" count={wk.discussion.length}>
                   <EditList items={wk.discussion} setItems={(a: any) => setWeek({ discussion: a })} ph="Decisions, FYIs, asks…" mid />
                 </Block>
               </div>
@@ -304,35 +354,115 @@ export default function Wip({ id }: { id: string }) {
           </div>
         )}
 
+        {tab === "kpi" && doc.kpi && (
+          <div className="page">
+            <div className="eyebrow">KPIs <span className="rule" /> targets for Senior Strategy Manager</div>
+            <div className="kpi-table">
+              <div className="kpi-head">
+                <span>Theme</span><span>SSM Target</span><span>Stretch</span><span />
+              </div>
+              {doc.kpi.themes.map((t) => {
+                const open = kpiOpen === t.id;
+                return (
+                  <div className={`kpi-row ${open ? "open" : ""}`} key={t.id}>
+                    <div className="kpi-grid">
+                      <div className="kpi-cell theme" data-l="Theme">
+                        <Editable className="ed" value={t.theme} ph="Theme…"
+                          onCommit={(v: string) => setKpiTheme(t.id, { theme: v })} />
+                      </div>
+                      <div className="kpi-cell" data-l="SSM Target">
+                        <AutoText value={t.target} ph="Senior Strategy Manager target…"
+                          onCommit={(v: string) => setKpiTheme(t.id, { target: v })} />
+                      </div>
+                      <div className="kpi-cell" data-l="Stretch">
+                        <AutoText value={t.stretch} ph="Stretch target…"
+                          onCommit={(v: string) => setKpiTheme(t.id, { stretch: v })} />
+                      </div>
+                      <div className="kpi-act">
+                        <button className="prog-toggle" onClick={() => setKpiOpen(open ? null : t.id)} title="Progress notes">
+                          Progress <ChevronRight size={13} className="cv" />
+                        </button>
+                        <X size={14} className="rm" onClick={() => removeKpiTheme(t.id)} />
+                      </div>
+                    </div>
+                    {open && (
+                      <div className="kpi-prog">
+                        <div className="k">Progress · updates, notes, blockers, evidence of completion</div>
+                        <AutoText value={t.progress} ph="What's happened, what's in the way, proof it's done…"
+                          onCommit={(v: string) => setKpiTheme(t.id, { progress: v })} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button className="additem kpi-add" onClick={addKpiTheme}><Plus size={12} /> Add KPI theme</button>
+            </div>
+
+            <div className="kpi-review">
+              <div className="rv">
+                <div className="k">Position Review Date</div>
+                <Editable className="v" value={doc.kpi.reviewDate} ph="e.g. 28-May-27"
+                  onCommit={(v: string) => setKpi({ reviewDate: v })} />
+              </div>
+              <div className="rv">
+                <div className="k">Promotion Goal</div>
+                <Editable className="v" value={doc.kpi.promotionGoal} ph="e.g. Promotion to Senior Strategy Manager"
+                  onCommit={(v: string) => setKpi({ promotionGoal: v })} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab === "quarter" && (
           <div className="page">
-            <div className="eyebrow">Quarterly Bets <span className="rule" /> what am I achieving this quarter</div>
-            <div className="bets">
-              {doc.bets.map((b) => (
-                <div className="bet" key={b.id}>
-                  <div className="ladder"><ArrowUpRight /> ladders to North Star</div>
-                  <Editable className="ed name" value={b.name} ph="Name the bet…"
-                    onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, name: v } : x))} />
-                  <Editable className="ed desc" value={b.desc} ph="Why it matters…"
-                    onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, desc: v } : x))} />
-                  <div className="bartop">
-                    <Chip status={b.status} onCycle={() => setBetStatus(b.id)} />
-                    <span className="pct mono">{b.progress}%</span>
+            <div className="eyebrow">Quarterly Focus <span className="rule" /> a business unit or capability each quarter</div>
+            <div className="quarters">
+              {(doc.quarters ?? []).map((q) => (
+                <div className="qf" key={q.id}>
+                  <X size={14} className="rm qfrm" onClick={() => removeQuarter(q.id)} />
+                  <div className="qf-head">
+                    <Editable className="qf-q" value={q.quarter} ph="Q?"
+                      onCommit={(v: string) => setQuarter(q.id, { quarter: v })} />
+                    <Editable className="qf-area" value={q.area} ph="Focus area…"
+                      onCommit={(v: string) => setQuarter(q.id, { area: v })} />
                   </div>
-                  <div className="track" onClick={(e) => setProgress(b.id, e)} title="Click to set progress">
-                    <div className="fill" style={{ width: `${b.progress}%` }} />
+
+                  <div className="qf-obj">
+                    <div className="k">Objective / reason for focus</div>
+                    <AutoText value={q.objective} ph="Why this focus, this quarter…"
+                      onCommit={(v: string) => setQuarter(q.id, { objective: v })} />
                   </div>
-                  <div className="foot">
-                    <div className="kv"><div className="k">Evidence</div>
-                      <Editable className="ed v" value={b.evidence} ph="What's the proof?"
-                        onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, evidence: v } : x))} /></div>
-                    <div className="kv"><div className="k">Notes</div>
-                      <Editable className="ed v" value={b.notes} ph="Signal of done…"
-                        onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, notes: v } : x))} /></div>
+
+                  <div className="qf-meet">
+                    <div className="k">Meetings</div>
+                    <div className="mtable">
+                      <div className="mhead">
+                        <span>Date</span><span>Who</span><span>Unit / org</span><span>Purpose</span><span>Notes / actions</span><span>Status</span><span />
+                      </div>
+                      {q.meetings.map((m) => (
+                        <div className="mrow" key={m.id}>
+                          <div data-l="Date"><Editable className="ed" value={m.date} ph="Date…" onCommit={(v: string) => updateMeeting(q, m.id, { date: v })} /></div>
+                          <div data-l="Who"><Editable className="ed" value={m.people} ph="Person / people…" onCommit={(v: string) => updateMeeting(q, m.id, { people: v })} /></div>
+                          <div data-l="Unit / org"><Editable className="ed" value={m.unit} ph="Business unit / org…" onCommit={(v: string) => updateMeeting(q, m.id, { unit: v })} /></div>
+                          <div data-l="Purpose"><Editable className="ed" value={m.purpose} ph="Purpose…" onCommit={(v: string) => updateMeeting(q, m.id, { purpose: v })} /></div>
+                          <div data-l="Notes / actions"><Editable className="ed" value={m.notes} ph="Notes / actions…" onCommit={(v: string) => updateMeeting(q, m.id, { notes: v })} /></div>
+                          <div data-l="Status" className="mstat"><MeetingChip status={m.status} onCycle={() => cycleMeeting(q, m.id)} /></div>
+                          <X size={13} className="rm mrm" onClick={() => setMeetings(q.id, q.meetings.filter((x) => x.id !== m.id))} />
+                        </div>
+                      ))}
+                      <button className="additem" onClick={() => addMeeting(q)}><Plus size={12} /> Add meeting</button>
+                    </div>
+                  </div>
+
+                  <div className="qf-foot">
+                    <div className="kv"><div className="k">Notes / actions</div>
+                      <AutoText value={q.notes} ph="Quarter-level notes / actions…" onCommit={(v: string) => setQuarter(q.id, { notes: v })} /></div>
+                    <div className="kv"><div className="k">Progress</div>
+                      <AutoText value={q.progress} ph="Progress this quarter…" onCommit={(v: string) => setQuarter(q.id, { progress: v })} /></div>
                   </div>
                 </div>
               ))}
-              <button className="addcard" onClick={addBet}><Plus size={15} /> Add a bet</button>
+              <button className="addcard qf-add" onClick={addQuarter}><Plus size={15} /> Add a quarter</button>
             </div>
           </div>
         )}

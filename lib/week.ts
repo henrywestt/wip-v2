@@ -3,8 +3,8 @@
 // Single source of truth: a week IS the Monday it starts on, stored as an
 // ISO "YYYY-MM-DD" string (`weekStart`). Everything else is derived.
 
-import type { WipDoc, Week, Status, Li } from "./types";
-import { uid } from "./seed";
+import type { WipDoc, Week, Status, Li, KpiBlock, QuarterFocus } from "./types";
+import { uid, SEED_KPI, SEED_QUARTERS } from "./seed";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -127,7 +127,22 @@ export function migrateDoc(doc: WipDoc, now: Date = new Date()): WipDoc {
   });
 
   weeks.sort((a, b) => a.weekStart!.localeCompare(b.weekStart!));
-  return { ...doc, weeks };
+
+  // Back-compat: docs created before the KPIs / Quarterly Focus tabs existed
+  // won't have these keys. Seed defaults only when the key is missing, so a
+  // doc you've already edited is never overwritten.
+  const kpi: KpiBlock =
+    doc.kpi && Array.isArray(doc.kpi.themes)
+      ? {
+          reviewDate: doc.kpi.reviewDate ?? SEED_KPI.reviewDate,
+          promotionGoal: doc.kpi.promotionGoal ?? SEED_KPI.promotionGoal,
+          themes: doc.kpi.themes,
+        }
+      : SEED_KPI;
+
+  const quarters: QuarterFocus[] = Array.isArray(doc.quarters) ? doc.quarters : SEED_QUARTERS;
+
+  return { ...doc, weeks, kpi, quarters };
 }
 
 /**

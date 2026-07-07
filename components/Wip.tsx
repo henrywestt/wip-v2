@@ -415,7 +415,6 @@ export default function Wip({ id }: { id: string }) {
 
         {tab === "quarter" && (
           <div className="page">
-<<<<<<< HEAD
             <div className="eyebrow">Quarterly Focus <span className="rule" /> a business unit or capability each quarter</div>
             <div className="quarters">
               {(doc.quarters ?? []).map((q) => (
@@ -426,21 +425,6 @@ export default function Wip({ id }: { id: string }) {
                       onCommit={(v: string) => setQuarter(q.id, { quarter: v })} />
                     <Editable className="qf-area" value={q.area} ph="Focus area…"
                       onCommit={(v: string) => setQuarter(q.id, { area: v })} />
-=======
-            <div className="eyebrow">Quarterly Bets <span className="rule" /> what am I achieving this quarter</div>
-            <div className="bets">
-              {doc.bets.map((b) => (
-                <div className="bet" key={b.id}>
-                  <X size={14} className="rm betrm" onClick={() => setBets(doc.bets.filter((x) => x.id !== b.id))} />
-                  <div className="ladder"><ArrowUpRight /> ladders to North Star</div>
-                  <Editable className="ed name" value={b.name} ph="Name the bet…"
-                    onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, name: v } : x))} />
-                  <Editable className="ed desc" value={b.desc} ph="Why it matters…"
-                    onCommit={(v: string) => setBets(doc.bets.map((x) => x.id === b.id ? { ...x, desc: v } : x))} />
-                  <div className="bartop">
-                    <Chip status={b.status} onCycle={() => setBetStatus(b.id)} />
-                    <span className="pct mono">{b.progress}%</span>
->>>>>>> 8eb970a35069ace48caa54e1fb7a3e3d748b3553
                   </div>
 
                   <div className="qf-obj">
